@@ -32,7 +32,7 @@ const {
 const lang = (Astro.currentLocale ?? "en") as Lang;
 const altLang = getAlternateLang(lang);
 const path = stripLocale(Astro.url.pathname, lang);
-const fullTitle = `${title} — Arthur Laurent`;
+const fullTitle = `${title} — arldka`;
 const canonicalHref = new URL(Astro.url.pathname, Astro.site).href;
 const alternates = translations.map((l) => ({
   hreflang: l,
