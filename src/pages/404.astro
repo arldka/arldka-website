@@ -1,0 +1,31 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { ui, languages, type Lang } from "@/i18n/ui";
+import { getRelativeLocaleUrl } from "astro:i18n";
+
+// Not locale-prefixed: Cloudflare serves /404.html for every unknown URL, so show both languages.
+const langs = Object.keys(languages) as Lang[];
+---
+
+<Layout title="404" translations={[]} noindex>
+  <div class="container page-404">
+    {langs.map((l) => (
+      <section lang={l}>
+        <h1>{ui[l]["404.heading"]}</h1>
+        <p><a href={getRelativeLocaleUrl(l, "", { normalizeLocale: false })}>{ui[l]["404.back"]}</a></p>
+      </section>
+    ))}
+  </div>
+</Layout>
+
+<style>
+  .page-404 {
+    padding-top: var(--space-16);
+    padding-bottom: var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .page-404 a { color: var(--color-link); }
+</style>

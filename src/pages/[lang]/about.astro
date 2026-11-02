@@ -1,0 +1,142 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { useTranslations, localeStaticPaths, getLang } from "@/i18n/ui";
+import { experiences } from "@/data/experience";
+import { certifications } from "@/data/certifications";
+import type { GetStaticPaths } from "astro";
+
+export const getStaticPaths = localeStaticPaths satisfies GetStaticPaths;
+
+const lang = getLang(Astro.params);
+const t = useTranslations(lang);
+---
+
+<Layout title={t("about.heading")}>
+  <div class="container page-about">
+    <h1>{t("about.heading")}</h1>
+    <p class="bio">{t("about.bio")}</p>
+
+    <section class="experience">
+      <h2>{t("about.experienceHeading")}</h2>
+      <ul class="exp-list" role="list">
+        {experiences.map((exp) => (
+          <li class="exp-item">
+            <div class="exp-header">
+              <div>
+                <span class="exp-role">{exp.role[lang]}</span>
+                <span class="exp-company">@ {exp.company}</span>
+              </div>
+              <span class="exp-period tag">{exp.period}</span>
+            </div>
+            <ul class="exp-desc" role="list">
+              {exp.description[lang].map((point) => <li>{point}</li>)}
+            </ul>
+            <ul class="exp-tags" role="list">
+              {exp.tags.map((tag) => <li><span class="tag">{tag}</span></li>)}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="certs">
+      <h2>{t("about.certsHeading")}</h2>
+      <ul class="cert-list" role="list">
+        {certifications.map((cert) => (
+          <li>
+            <span class:list={["tag", { "cert-inactive": !cert.active }]}>
+              {cert.name[lang]}{!cert.active ? ` (${lang === "en" ? "Inactive" : "已过期"})` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </div>
+</Layout>
+
+<style>
+  .page-about {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+  }
+
+  .bio {
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+  }
+
+  .experience h2,
+  .certs h2 {
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-6);
+  }
+
+  .exp-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .exp-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-left: var(--space-4);
+    border-left: 1px solid var(--color-border);
+  }
+
+  .exp-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .exp-role { font-weight: 600; }
+
+  .exp-company {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-left: var(--space-2);
+  }
+
+  .exp-period { flex-shrink: 0; }
+
+  .exp-desc {
+    color: var(--color-text-muted);
+    font-size: 0.925rem;
+    padding-left: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .exp-desc li { list-style: disc; }
+
+  .exp-tags {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .cert-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .cert-inactive {
+    opacity: 0.55;
+  }
+</style>

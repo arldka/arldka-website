@@ -1,0 +1,72 @@
+---
+import { useTranslations, type Lang } from "@/i18n/ui";
+
+const lang = (Astro.currentLocale ?? "en") as Lang;
+const t = useTranslations(lang);
+
+const year = new Date().getFullYear();
+
+const socials = [
+  { label: "GitHub", href: "https://github.com/arldka" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/in/arthur-laurent-fr/" },
+  { label: t("nav.memo"), href: "https://memo.arldka.cloud" },
+  { label: "Email", href: "mailto:arthur.laurent@arldka.cloud" },
+];
+---
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-inner">
+      <ul class="footer-links" role="list">
+        {socials.map(({ label, href }) => (
+          <li>
+            <a href={href} target={href.startsWith("mailto") ? undefined : "_blank"} rel="noopener noreferrer">
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+      <p class="footer-copy">
+        © {year} Arthur Laurent · {t("footer.rights")}
+      </p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--color-border);
+    padding: var(--space-8) 0;
+    margin-top: var(--space-16);
+  }
+
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .footer-links {
+    display: flex;
+    gap: var(--space-4);
+    list-style: none;
+  }
+
+  .footer-links a {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+  }
+
+  .footer-links a:hover {
+    color: var(--color-text);
+  }
+
+  .footer-copy {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    max-width: none;
+  }
+</style>

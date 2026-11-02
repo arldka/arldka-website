@@ -1,0 +1,50 @@
+---
+---
+
+<button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+  <span class="icon-light">☀</span>
+  <span class="icon-dark">☽</span>
+</button>
+
+<script>
+  // Initial theme is applied by the inline script in Layout.astro (no flash); only react to clicks here.
+  const btn = document.getElementById("theme-toggle");
+  const root = document.documentElement;
+
+  const sync = () => btn?.setAttribute("aria-pressed", String(root.dataset.theme === "dark"));
+  sync();
+
+  btn?.addEventListener("click", () => {
+    const next = root.dataset.theme === "dark" ? "light" : "dark";
+    root.dataset.theme = next === "dark" ? "dark" : "";
+    try {
+      localStorage.setItem("theme", next);
+    } catch (_) {}
+    sync();
+  });
+</script>
+
+<style>
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+  }
+
+  .theme-toggle:hover {
+    color: var(--color-text);
+    border-color: var(--color-text-muted);
+  }
+
+  :root:not([data-theme="dark"]) .icon-dark,
+  [data-theme="dark"] .icon-light {
+    display: none;
+  }
+</style>

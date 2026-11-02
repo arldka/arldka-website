@@ -1,0 +1,291 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { useTranslations, localeStaticPaths, getLang, formatDate } from "@/i18n/ui";
+import { getRelativeLocaleUrl } from "astro:i18n";
+import { getPostsByLang, splitId } from "@/lib/blog";
+import { projects } from "@/data/projects";
+import type { GetStaticPaths } from "astro";
+
+export const getStaticPaths = localeStaticPaths satisfies GetStaticPaths;
+
+const lang = getLang(Astro.params);
+const t = useTranslations(lang);
+
+const featuredProjects = projects.filter((p) => p.featured);
+
+const allPosts = await getPostsByLang(lang);
+
+const featuredPosts = allPosts.filter((p) => p.data.featured);
+const displayPosts = featuredPosts.length > 0 ? featuredPosts.slice(0, 3) : allPosts.slice(0, 3);
+
+---
+
+<Layout title={t("nav.home")}>
+  <div class="container page-home">
+    <section class="hero">
+      <h1 class="hero-name">Arthur Laurent</h1>
+      <p class="hero-tagline">{t("home.tagline")}</p>
+      <p class="hero-certs tag">{t("home.certBadges")}</p>
+    </section>
+
+    <section class="section-now">
+      <h2>{t("home.nowHeading")}</h2>
+      <p>{t("home.now")}</p>
+    </section>
+
+    {featuredProjects.length > 0 && (
+      <section class="section-featured">
+        <div class="section-header">
+          <h2 class="section-label">{t("home.featuredProjectsHeading")}</h2>
+          <a href={getRelativeLocaleUrl(lang, "projects", { normalizeLocale: false })} class="view-all">
+            {t("home.viewAll")}
+          </a>
+        </div>
+        <ul class="featured-projects" role="list">
+          {featuredProjects.map((p) => (
+            <li class="fp-card">
+              <div class="fp-top">
+                <span class="fp-name">{p.name}</span>
+                <div class="fp-badges">
+                  {p.openness === "open-source" && <span class="badge openness-open-source">{t("projects.openness.open-source")}</span>}
+                  {p.openness === "open-core"    && <span class="badge openness-open-core">{t("projects.openness.open-core")}</span>}
+                  {p.wip && <span class="badge wip">{t("projects.wip")}</span>}
+                </div>
+              </div>
+              <p class="fp-desc">{p.description[lang]}</p>
+              <div class="fp-footer">
+                <ul class="fp-tags" role="list">
+                  {p.tags.slice(0, 4).map((tag) => <li><span class="tag">{tag}</span></li>)}
+                </ul>
+                {p.source && (
+                  <a href={p.source} class="fp-link" target="_blank" rel="noopener noreferrer">
+                    {t("projects.viewSource")} ↗
+                  </a>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {displayPosts.length > 0 && (
+      <section class="section-featured">
+        <div class="section-header">
+          <h2 class="section-label">{t("home.featuredPostsHeading")}</h2>
+          <a href={getRelativeLocaleUrl(lang, "blog", { normalizeLocale: false })} class="view-all">
+            {t("home.viewAll")}
+          </a>
+        </div>
+        <ul class="featured-posts" role="list">
+          {displayPosts.map((post) => {
+            const { slug } = splitId(post.id);
+            return (
+              <li class="post-row">
+                <a href={getRelativeLocaleUrl(lang, `blog/${slug}`, { normalizeLocale: false })} class="post-row-link">
+                  <span class="post-row-title">{post.data.title}</span>
+                  <span class="post-row-date">
+                    {formatDate(post.data.pubDate, lang)}
+                  </span>
+                </a>
+                {post.data.description && <p class="post-row-desc">{post.data.description}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    )}
+
+    <section class="section-links">
+      <a href={getRelativeLocaleUrl(lang, "about", { normalizeLocale: false })}>{t("nav.about")}</a>
+      <span class="sep">·</span>
+      <a href={getRelativeLocaleUrl(lang, "projects", { normalizeLocale: false })}>{t("nav.projects")}</a>
+      <span class="sep">·</span>
+      <a href={getRelativeLocaleUrl(lang, "blog", { normalizeLocale: false })}>{t("nav.blog")}</a>
+      <span class="sep">·</span>
+      <a href="https://memo.arldka.cloud" target="_blank" rel="noopener noreferrer">{t("nav.memo")} ↗</a>
+    </section>
+  </div>
+</Layout>
+
+<style>
+  .page-home {
+    padding-top: var(--space-16);
+    padding-bottom: var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+  }
+
+  .hero { display: flex; flex-direction: column; gap: var(--space-3); }
+
+  .hero-name {
+    font-size: 2.5rem;
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+  }
+
+  .hero-tagline { font-size: 1.1rem; color: var(--color-text-muted); max-width: none; }
+  .hero-certs { align-self: flex-start; }
+
+  .section-now {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    border-left: 2px solid var(--color-accent);
+    padding-left: var(--space-4);
+  }
+
+  .section-now h2 {
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-accent);
+  }
+
+  /* shared section chrome */
+  .section-featured { display: flex; flex-direction: column; gap: var(--space-4); }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .section-label {
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+  }
+
+  .view-all {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+  }
+
+  .view-all:hover { color: var(--color-accent); }
+
+  /* featured projects */
+  .featured-projects { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+
+  .fp-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    transition: border-color 0.15s;
+  }
+
+  .fp-card:hover { border-color: var(--color-text-muted); }
+
+  .fp-top {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .fp-name {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .fp-badges { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+
+  .fp-desc { font-size: 0.9rem; color: var(--color-text-muted); }
+
+  .fp-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin-top: var(--space-1);
+  }
+
+  .fp-tags { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-1); }
+
+  .fp-link {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  .fp-link:hover { color: var(--color-text); }
+
+  /* badge styles (mirrors projects page) */
+  .badge {
+    font-size: 0.68rem;
+    font-family: var(--font-mono);
+    border: 1px solid;
+    padding: 0.1em 0.45em;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
+
+  .openness-open-source { color: #0369a1; background: #f0f9ff; border-color: #bae6fd; }
+  .openness-open-core   { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
+  .wip                  { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+
+  [data-theme="dark"] .openness-open-source { color: #38bdf8; background: #082f49; border-color: #0c4a6e; }
+  [data-theme="dark"] .openness-open-core   { color: #c4b5fd; background: #1e1b4b; border-color: #4c1d95; }
+  [data-theme="dark"] .wip                  { color: #fcd34d; background: #1c1408; border-color: #78350f; }
+
+  /* featured posts */
+  .featured-posts { list-style: none; display: flex; flex-direction: column; }
+
+  .post-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .post-row:first-child { border-top: 1px solid var(--color-border); }
+
+  .post-row-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-4);
+    text-decoration: none;
+    color: var(--color-text);
+  }
+
+  .post-row-link:hover .post-row-title { color: var(--color-accent); }
+
+  .post-row-title { font-weight: 600; font-size: 0.95rem; }
+
+  .post-row-date {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+
+  .post-row-desc { font-size: 0.875rem; color: var(--color-text-muted); }
+
+  /* nav links row */
+  .section-links {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.9rem;
+  }
+
+  .sep { color: var(--color-border); }
+
+  .section-links a { color: var(--color-text-muted); text-decoration: none; }
+  .section-links a:hover { color: var(--color-text); }
+</style>

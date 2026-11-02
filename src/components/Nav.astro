@@ -1,0 +1,143 @@
+---
+import { useTranslations, type Lang } from "@/i18n/ui";
+import { getRelativeLocaleUrl } from "astro:i18n";
+import ThemeToggle from "@/components/ThemeToggle.astro";
+
+interface Props {
+  switchHref: string;
+}
+
+const lang = (Astro.currentLocale ?? "en") as Lang;
+const t = useTranslations(lang);
+const { switchHref } = Astro.props;
+
+const navLinks = [
+  { key: "nav.home" as const, slug: "" },
+  { key: "nav.about" as const, slug: "about" },
+  { key: "nav.projects" as const, slug: "projects" },
+  { key: "nav.blog" as const, slug: "blog" },
+];
+
+const currentPath = Astro.url.pathname;
+const norm = (p: string) => p.replace(/\/$/, "");
+---
+
+<header class="site-header">
+  <div class="container">
+    <nav class="nav" aria-label="Main navigation">
+      <a href={getRelativeLocaleUrl(lang, "", { normalizeLocale: false })} class="nav-logo">arldka</a>
+
+      <ul class="nav-links" role="list">
+        {navLinks.map(({ key, slug }) => {
+          const href = getRelativeLocaleUrl(lang, slug, { normalizeLocale: false });
+          const isActive = norm(currentPath) === norm(href) || (slug !== "" && norm(currentPath).startsWith(norm(href)));
+          return (
+            <li>
+              <a href={href} class:list={["nav-link", { active: isActive }]}>
+                {t(key)}
+              </a>
+            </li>
+          );
+        })}
+        <li>
+          <a href="https://memo.arldka.cloud" class="nav-link" target="_blank" rel="noopener noreferrer">
+            {t("nav.memo")} ↗
+          </a>
+        </li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href={switchHref} class="lang-switch" title="Switch language" hreflang={lang === "en" ? "zh-CN" : "en"}>
+          {t("nav.switchLang")}
+        </a>
+        <ThemeToggle />
+      </div>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    height: 3.5rem;
+  }
+
+  .nav-logo {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--color-text);
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  .nav-logo:hover {
+    color: var(--color-accent);
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    list-style: none;
+    flex: 1;
+  }
+
+  .nav-link {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm);
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .nav-link:hover,
+  .nav-link.active {
+    color: var(--color-text);
+    background: var(--color-bg-alt);
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-left: auto;
+  }
+
+  .lang-switch {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    border: 1px solid var(--color-border);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+  }
+
+  .lang-switch:hover {
+    color: var(--color-text);
+    border-color: var(--color-text-muted);
+  }
+
+  @media (max-width: 640px) {
+    .nav-links {
+      gap: 0;
+    }
+
+    .nav-link {
+      padding: var(--space-1) var(--space-2);
+      font-size: 0.8rem;
+    }
+  }
+</style>

@@ -1,0 +1,82 @@
+---
+import Nav from "@/components/Nav.astro";
+import Footer from "@/components/Footer.astro";
+import { Font } from "astro:assets";
+import { getAlternateLang, languages, stripLocale, type Lang } from "@/i18n/ui";
+import { getAbsoluteLocaleUrl, getRelativeLocaleUrl } from "astro:i18n";
+import "@/styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Locales in which this exact page exists. Defaults to all of them. */
+  translations?: Lang[];
+  /** Locale-less path the language switch falls back to when this page is not translated. */
+  switchFallback?: string;
+  noindex?: boolean;
+  type?: "website" | "article";
+  publishedTime?: Date;
+  modifiedTime?: Date;
+}
+
+const {
+  title,
+  description = "Arthur Laurent — DevOps / Platform Engineer",
+  translations = Object.keys(languages) as Lang[],
+  switchFallback = "",
+  noindex = false,
+  type = "website",
+  publishedTime,
+  modifiedTime,
+} = Astro.props;
+const lang = (Astro.currentLocale ?? "en") as Lang;
+const altLang = getAlternateLang(lang);
+const path = stripLocale(Astro.url.pathname, lang);
+const fullTitle = `${title} — Arthur Laurent`;
+const canonicalHref = new URL(Astro.url.pathname, Astro.site).href;
+const alternates = translations.map((l) => ({
+  hreflang: l,
+  href: getAbsoluteLocaleUrl(l, path, { normalizeLocale: false }),
+}));
+const hasDefault = translations.includes("en");
+const switchHref = getRelativeLocaleUrl(altLang, translations.includes(altLang) ? path : switchFallback, {
+  normalizeLocale: false,
+});
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="canonical" href={canonicalHref} />
+    {alternates.map(({ hreflang, href }) => <link rel="alternate" hreflang={hreflang} href={href} />)}
+    {hasDefault && <link rel="alternate" hreflang="x-default" href={alternates.find((a) => a.hreflang === "en")!.href} />}
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalHref} />
+    <meta property="og:locale" content={lang.replace("-", "_")} />
+    {publishedTime && <meta property="article:published_time" content={publishedTime.toISOString()} />}
+    {modifiedTime && <meta property="article:modified_time" content={modifiedTime.toISOString()} />}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{fullTitle}</title>
+    <Font cssVariable="--font-inter" preload />
+    <Font cssVariable="--font-jetbrains" />
+    <script is:inline>
+      try {
+        const t = localStorage.getItem("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        if (t === "dark") document.documentElement.dataset.theme = "dark";
+      } catch (_) {}
+    </script>
+  </head>
+  <body>
+    <Nav switchHref={switchHref} />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

@@ -1,0 +1,122 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { useTranslations, formatDate, languages, type Lang } from "@/i18n/ui";
+import { getCollection, render } from "astro:content";
+import { getRelativeLocaleUrl } from "astro:i18n";
+import { splitId } from "@/lib/blog";
+import type { GetStaticPaths, InferGetStaticPropsType } from "astro";
+
+export const getStaticPaths = (async () => {
+  const posts = await getCollection("blog", ({ data }) => !data.draft);
+  const slugsByLang = new Map<string, Set<Lang>>();
+  for (const post of posts) {
+    const { lang, slug } = splitId(post.id);
+    slugsByLang.set(slug, (slugsByLang.get(slug) ?? new Set()).add(lang));
+  }
+  return posts.map((post) => {
+    const { lang, slug } = splitId(post.id);
+    const translations = (Object.keys(languages) as Lang[]).filter((l) => slugsByLang.get(slug)?.has(l));
+    return { params: { lang, slug }, props: { post, translations } };
+  });
+}) satisfies GetStaticPaths;
+
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+const { post, translations } = Astro.props;
+const lang = Astro.params.lang as Lang;
+const { Content } = await render(post);
+const t = useTranslations(lang);
+const { pubDate, updatedDate } = post.data;
+---
+
+<Layout
+  title={post.data.title}
+  description={post.data.description}
+  type="article"
+  publishedTime={pubDate}
+  modifiedTime={updatedDate}
+  translations={translations}
+  switchFallback="blog"
+>
+  <div class="container page-post">
+    <nav class="breadcrumb">
+      <a href={getRelativeLocaleUrl(lang, "blog", { normalizeLocale: false })}>{t("blog.backToList")}</a>
+    </nav>
+
+    <article class="post">
+      <header class="post-header">
+        <h1>{post.data.title}</h1>
+        <div class="post-meta">
+          <time datetime={pubDate.toISOString()} class="tag">
+            {formatDate(pubDate, lang, "long")}
+          </time>
+          {updatedDate && (
+            <time datetime={updatedDate.toISOString()} class="tag">
+              {t("blog.updated")} {formatDate(updatedDate, lang, "long")}
+            </time>
+          )}
+          <ul class="post-tags" role="list">
+            {post.data.tags.map((tag) => <li><span class="tag">{tag}</span></li>)}
+          </ul>
+        </div>
+      </header>
+
+      <div class="post-content">
+        <Content />
+      </div>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .page-post {
+    padding-top: var(--space-8);
+    padding-bottom: var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .breadcrumb a {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+  }
+
+  .breadcrumb a:hover { color: var(--color-text); }
+
+  .post-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-bottom: var(--space-8);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .post-tags { list-style: none; display: flex; gap: var(--space-2); }
+
+  .post-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: var(--max-w-prose);
+  }
+
+  .post-content :global(h2) { margin-top: var(--space-8); }
+  .post-content :global(h3) { margin-top: var(--space-6); }
+  .post-content :global(ul), .post-content :global(ol) { padding-left: var(--space-6); }
+  .post-content :global(li) { margin-bottom: var(--space-1); }
+  .post-content :global(blockquote) {
+    border-left: 3px solid var(--color-accent);
+    padding-left: var(--space-4);
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+  .post-content :global(a) { color: var(--color-link); }
+</style>

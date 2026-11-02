@@ -1,0 +1,229 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { useTranslations, localeStaticPaths, getLang } from "@/i18n/ui";
+import { projects, contributedProjects, type ProjectStatus, type ProjectOpenness, type ContributionRole } from "@/data/projects";
+import type { GetStaticPaths } from "astro";
+
+export const getStaticPaths = localeStaticPaths satisfies GetStaticPaths;
+
+const lang = getLang(Astro.params);
+const t = useTranslations(lang);
+
+const statusKey = (s: ProjectStatus) =>
+  `projects.status.${s}` as "projects.status.active" | "projects.status.inactive" | "projects.status.archived";
+
+const opennessKey = (o: ProjectOpenness) =>
+  `projects.openness.${o}` as "projects.openness.open-source" | "projects.openness.open-core" | "projects.openness.closed-source";
+
+const roleKey = (r: ContributionRole) =>
+  `projects.role.${r}` as "projects.role.contributor" | "projects.role.maintainer" | "projects.role.reviewer";
+---
+
+<Layout title={t("projects.heading")}>
+  <div class="container page-projects">
+    <h1>{t("projects.heading")}</h1>
+
+    <ul class="project-list" role="list">
+      {projects.map((p) => (
+        <li class="project-card">
+          <div class="project-header">
+            <div class="project-name-row">
+              <h2 class="project-name">{p.name}</h2>
+              <div class="badge-row">
+                <span class:list={["badge", `status-${p.status}`]}>{t(statusKey(p.status))}</span>
+                {p.openness && <span class:list={["badge", `openness-${p.openness}`]}>{t(opennessKey(p.openness))}</span>}
+                {p.wip && <span class="badge wip">{t("projects.wip")}</span>}
+              </div>
+            </div>
+            <div class="project-links">
+              {p.source && (
+                <a href={p.source} target="_blank" rel="noopener noreferrer">
+                  {t("projects.viewSource")} ↗
+                </a>
+              )}
+              {p.site && (
+                <a href={p.site} target="_blank" rel="noopener noreferrer">
+                  {t("projects.visitSite")} ↗
+                </a>
+              )}
+            </div>
+          </div>
+          {p.description[lang] && <p class="project-desc">{p.description[lang]}</p>}
+          {p.tags.length > 0 && (
+            <ul class="project-tags" role="list">
+              {p.tags.map((tag) => <li><span class="tag">{tag}</span></li>)}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ul>
+
+    {contributedProjects.length > 0 && (
+      <section class="contributions">
+        <h2 class="section-label">{t("projects.contributedHeading")}</h2>
+        <ul class="project-list" role="list">
+          {contributedProjects.map((p) => (
+            <li class="project-card">
+              <div class="project-header">
+                <div class="project-name-row">
+                  <h2 class="project-name">{p.name}</h2>
+                  <span class:list={["badge", `role-${p.role}`]}>{t(roleKey(p.role))}</span>
+                </div>
+                <div class="project-links">
+                  {p.source && (
+                    <a href={p.source} target="_blank" rel="noopener noreferrer">
+                      {t("projects.viewSource")} ↗
+                    </a>
+                  )}
+                  {p.site && (
+                    <a href={p.site} target="_blank" rel="noopener noreferrer">
+                      {t("projects.visitSite")} ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+              {p.description[lang] && <p class="project-desc">{p.description[lang]}</p>}
+              {p.tags.length > 0 && (
+                <ul class="project-tags" role="list">
+                  {p.tags.map((tag) => <li><span class="tag">{tag}</span></li>)}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+  </div>
+</Layout>
+
+<style>
+  .page-projects {
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .section-label {
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-4);
+  }
+
+  .contributions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .project-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .project-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    transition: border-color 0.15s;
+  }
+
+  .project-card:hover { border-color: var(--color-text-muted); }
+
+  .project-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .project-name-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .project-name {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+  }
+
+  .badge-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-size: 0.68rem;
+    font-family: var(--font-mono);
+    border: 1px solid;
+    padding: 0.1em 0.45em;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
+
+  /* status */
+  .status-active   { color: #16a34a; background: #f0fdf4; border-color: #bbf7d0; }
+  .status-inactive { color: var(--color-text-muted); background: var(--color-bg-alt); border-color: var(--color-border); }
+  .status-archived { color: #92400e; background: #fffbeb; border-color: #fde68a; }
+
+  /* openness */
+  .openness-open-source  { color: #0369a1; background: #f0f9ff; border-color: #bae6fd; }
+  .openness-open-core    { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
+  .openness-closed-source { color: var(--color-text-muted); background: var(--color-bg-alt); border-color: var(--color-border); }
+
+  /* wip */
+  .wip { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+
+  /* roles */
+  .role-contributor { color: #0369a1; background: #f0f9ff; border-color: #bae6fd; }
+  .role-maintainer  { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
+  .role-reviewer    { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+
+  /* dark overrides */
+  [data-theme="dark"] .status-active   { color: #4ade80; background: #052e16; border-color: #166534; }
+  [data-theme="dark"] .status-archived { color: #fcd34d; background: #1c1408; border-color: #78350f; }
+
+  [data-theme="dark"] .openness-open-source  { color: #38bdf8; background: #082f49; border-color: #0c4a6e; }
+  [data-theme="dark"] .openness-open-core    { color: #c4b5fd; background: #1e1b4b; border-color: #4c1d95; }
+
+  [data-theme="dark"] .wip { color: #fcd34d; background: #1c1408; border-color: #78350f; }
+
+  [data-theme="dark"] .role-contributor { color: #38bdf8; background: #082f49; border-color: #0c4a6e; }
+  [data-theme="dark"] .role-maintainer  { color: #c4b5fd; background: #1e1b4b; border-color: #4c1d95; }
+  [data-theme="dark"] .role-reviewer    { color: #fcd34d; background: #1c1408; border-color: #78350f; }
+
+  .project-links {
+    display: flex;
+    gap: var(--space-4);
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  .project-desc {
+    color: var(--color-text-muted);
+    font-size: 0.925rem;
+  }
+
+  .project-tags {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+</style>
