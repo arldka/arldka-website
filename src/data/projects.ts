@@ -33,8 +33,19 @@ export const projects: Project[] = [
     tags: ["Astro", "TypeScript", "Cloudflare Pages"],
     status: "active",
     openness: "open-source",
-    wip: true,
+    wip: false,
     source: "https://github.com/arldka/arldka-website",
+  },
+  {
+    name: "wxexport",
+    description: {
+      en: "Export your WeChat 1:1 chat and call history to JSON, CSV and SQLite.",
+      "zh-CN": "将你的微信 1:1 聊天与通话记录导出为 JSON、CSV 和 SQLite。",
+    },
+    tags: ["wechat", "微信", "golang"],
+    status: "active",
+    wip: true,
+    source: "https://github.com/arldka/wxexport"
   },
   {
     name: "kubernetes-homelab",
@@ -42,10 +53,10 @@ export const projects: Project[] = [
       en: "Infrastructure-as-code for my Talos homelab Kubernetes cluster. Flux, Cilium, POCs and associated automation.",
       "zh-CN": "我的家庭实验室在Talos Linux上运行 Kubernetes 集群的基础设施即代码，涵盖 Flux、Cilium、POC 及相关自动化。",
     },
-    tags: ["Kubernetes", "FluxCD", "Cilium", "Terraform"],
+    tags: ["Kubernetes", "FluxCD", "Cilium", "Talos"],
     status: "active",
-    wip: true,
-    source: "https://github.com/arldka/kubernetes-homelab",
+    wip: false,
+    source: "https://gitlab.com/arldka/kubernetes-homelab",
   },
   {
     name: "kubenoir",
