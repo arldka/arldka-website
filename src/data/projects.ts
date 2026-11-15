@@ -34,7 +34,9 @@ export const projects: Project[] = [
     status: "active",
     openness: "open-source",
     wip: false,
+    featured: true,
     source: "https://github.com/arldka/arldka-website",
+    site: "https://arldka.cloud",
   },
   {
     name: "wxexport",
@@ -44,7 +46,9 @@ export const projects: Project[] = [
     },
     tags: ["wechat", "微信", "golang"],
     status: "active",
-    wip: true,
+    wip: false,
+    featured: true,
+    openness: "open-source",
     source: "https://github.com/arldka/wxexport"
   },
   {
@@ -56,6 +60,7 @@ export const projects: Project[] = [
     tags: ["Kubernetes", "FluxCD", "Cilium", "Talos"],
     status: "active",
     wip: false,
+    openness: "open-source",
     source: "https://gitlab.com/arldka/kubernetes-homelab",
   },
   {
@@ -66,8 +71,10 @@ export const projects: Project[] = [
     },
     tags: ["Rust", "WASM" ,"SvelteKit", "Tailwind CSS"],
     status: "active",
-    wip: true,
-    source: "https://github.com/arldka/kubenoir"
+    wip: false,
+    openness: "open-source",
+    source: "https://github.com/arldka/kubenoir",
+    site: "https://kubenoir.arldka.cloud"
   },
   {
     name: "Petra",
