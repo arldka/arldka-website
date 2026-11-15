@@ -1,16 +1,18 @@
 ---
 import { useTranslations, type Lang } from "@/i18n/ui";
+import Icon, { type IconName } from "@/components/Icon.astro";
 
 const lang = (Astro.currentLocale ?? "en") as Lang;
 const t = useTranslations(lang);
 
 const year = new Date().getFullYear();
 
-const socials = [
-  { label: "GitHub", href: "https://github.com/arldka" },
-  { label: "LinkedIn", href: "https://www.linkedin.com/in/arthur-laurent-fr/" },
-  { label: t("nav.memo"), href: "https://memo.arldka.cloud" },
-  { label: "Email", href: "mailto:arthur.laurent@arldka.cloud" },
+const socials: { label: string; href: string; icon: IconName }[] = [
+  { label: "GitHub", href: "https://github.com/arldka", icon: "github" },
+  { label: "GitLab", href: "https://gitlab.com/arldka", icon: "gitlab" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/in/arthur-laurent-fr/", icon: "linkedin" },
+  { label: t("nav.memo"), href: "https://memo.arldka.cloud", icon: "memo" },
+  { label: "Email", href: "mailto:arthur.laurent@arldka.cloud", icon: "mail" },
 ];
 ---
 
@@ -18,10 +20,16 @@ const socials = [
   <div class="container">
     <div class="footer-inner">
       <ul class="footer-links" role="list">
-        {socials.map(({ label, href }) => (
+        {socials.map(({ label, href, icon }) => (
           <li>
-            <a href={href} target={href.startsWith("mailto") ? undefined : "_blank"} rel="noopener noreferrer">
-              {label}
+            <a
+              href={href}
+              target={href.startsWith("mailto") ? undefined : "_blank"}
+              rel="noopener noreferrer"
+              aria-label={label}
+              title={label}
+            >
+              <Icon name={icon} />
             </a>
           </li>
         ))}
@@ -50,18 +58,22 @@ const socials = [
 
   .footer-links {
     display: flex;
-    gap: var(--space-4);
+    align-items: center;
+    gap: var(--space-2);
     list-style: none;
   }
 
   .footer-links a {
-    font-size: 0.875rem;
+    display: inline-flex;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
     color: var(--color-text-muted);
-    text-decoration: none;
+    transition: color 0.15s;
   }
 
-  .footer-links a:hover {
-    color: var(--color-text);
+  .footer-links a:hover,
+  .footer-links a:focus-visible {
+    color: var(--color-accent);
   }
 
   .footer-copy {
