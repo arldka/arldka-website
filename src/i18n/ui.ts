@@ -51,6 +51,9 @@ export const ui = {
     "blog.backToList": "← All posts",
     "blog.empty": "No posts yet.",
     "blog.updated": "Updated",
+    "blog.readingTime": "{n} min read",
+    "blog.copy": "Copy",
+    "blog.copied": "Copied!",
 
     "404.heading": "Page not found",
     "404.back": "Back to home",
@@ -99,6 +102,9 @@ export const ui = {
     "blog.backToList": "← 所有文章",
     "blog.empty": "暂无文章。",
     "blog.updated": "更新于",
+    "blog.readingTime": "{n} 分钟阅读",
+    "blog.copy": "复制",
+    "blog.copied": "已复制",
 
     "404.heading": "页面未找到",
     "404.back": "返回首页",

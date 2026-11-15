@@ -72,6 +72,7 @@ export const projects: Project[] = [
     tags: ["Rust", "WASM" ,"SvelteKit", "Tailwind CSS"],
     status: "active",
     wip: false,
+    featured: true,
     openness: "open-source",
     source: "https://github.com/arldka/kubenoir",
     site: "https://kubenoir.arldka.cloud"

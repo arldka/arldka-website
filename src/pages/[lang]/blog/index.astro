@@ -1,7 +1,7 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import { useTranslations, localeStaticPaths, getLang, formatDate } from "@/i18n/ui";
-import { getPostsByLang, splitId } from "@/lib/blog";
+import { getPostsByLang, splitId, readingTime } from "@/lib/blog";
 import { getRelativeLocaleUrl } from "astro:i18n";
 import type { GetStaticPaths } from "astro";
 
@@ -28,7 +28,7 @@ const posts = await getPostsByLang(lang);
               <a href={getRelativeLocaleUrl(lang, `blog/${slug}`, { normalizeLocale: false })} class="post-link">
                 <span class="post-title">{post.data.title}</span>
                 <span class="post-date">
-                  {formatDate(post.data.pubDate, lang)}
+                  {formatDate(post.data.pubDate, lang)} · {t("blog.readingTime").replace("{n}", String(readingTime(post)))}
                 </span>
               </a>
               <p class="post-desc">{post.data.description}</p>
