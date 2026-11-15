@@ -3,7 +3,7 @@ import Layout from "@/layouts/Layout.astro";
 import { useTranslations, formatDate, languages, type Lang } from "@/i18n/ui";
 import { getCollection, render } from "astro:content";
 import { getRelativeLocaleUrl } from "astro:i18n";
-import { splitId } from "@/lib/blog";
+import { splitId, readingTime } from "@/lib/blog";
 import type { GetStaticPaths, InferGetStaticPropsType } from "astro";
 
 export const getStaticPaths = (async () => {
@@ -54,18 +54,52 @@ const { pubDate, updatedDate } = post.data;
               {t("blog.updated")} {formatDate(updatedDate, lang, "long")}
             </time>
           )}
+          <span class="tag">{t("blog.readingTime").replace("{n}", String(readingTime(post)))}</span>
           <ul class="post-tags" role="list">
             {post.data.tags.map((tag) => <li><span class="tag">{tag}</span></li>)}
           </ul>
         </div>
       </header>
 
-      <div class="post-content">
+      <div class="post-content" data-copy={t("blog.copy")} data-copied={t("blog.copied")}>
         <Content />
       </div>
     </article>
   </div>
 </Layout>
+
+<script>
+  const content = document.querySelector<HTMLElement>(".post-content");
+  if (content && navigator.clipboard) {
+    const { copy = "Copy", copied = "Copied!" } = content.dataset;
+
+    content.querySelectorAll("pre").forEach((pre) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "code-block";
+      pre.replaceWith(wrapper);
+      wrapper.append(pre);
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "copy-btn";
+      btn.textContent = copy;
+      btn.setAttribute("aria-label", copy);
+      wrapper.append(btn);
+
+      let timer: number | undefined;
+      btn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(pre.querySelector("code")?.innerText ?? pre.innerText);
+        } catch {
+          return;
+        }
+        btn.textContent = copied;
+        clearTimeout(timer);
+        timer = window.setTimeout(() => (btn.textContent = copy), 1500);
+      });
+    });
+  }
+</script>
 
 <style>
   .page-post {
@@ -119,4 +153,31 @@ const { pubDate, updatedDate } = post.data;
     font-style: italic;
   }
   .post-content :global(a) { color: var(--color-link); }
+
+  .post-content :global(.code-block) { position: relative; }
+
+  .post-content :global(.copy-btn) {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+  }
+
+  .post-content :global(.code-block:hover .copy-btn),
+  .post-content :global(.copy-btn:focus-visible) { opacity: 1; }
+
+  .post-content :global(.copy-btn:hover) { color: var(--color-accent); }
+
+  @media (hover: none) {
+    .post-content :global(.copy-btn) { opacity: 1; }
+  }
 </style>
