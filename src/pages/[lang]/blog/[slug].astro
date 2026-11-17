@@ -35,6 +35,7 @@ const { pubDate, updatedDate } = post.data;
   title={post.data.title}
   description={post.data.description}
   type="article"
+  image={`/og/${lang}/${splitId(post.id).slug}.png`}
   publishedTime={pubDate}
   modifiedTime={updatedDate}
   translations={translations}
