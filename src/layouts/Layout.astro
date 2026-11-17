@@ -17,6 +17,8 @@ interface Props {
   type?: "website" | "article";
   publishedTime?: Date;
   modifiedTime?: Date;
+  /** Open Graph image path (under /public). Defaults to the site card. */
+  image?: string;
 }
 
 const {
@@ -28,11 +30,13 @@ const {
   type = "website",
   publishedTime,
   modifiedTime,
+  image = "/og/default.png",
 } = Astro.props;
 const lang = (Astro.currentLocale ?? "en") as Lang;
 const altLang = getAlternateLang(lang);
 const path = stripLocale(Astro.url.pathname, lang);
 const fullTitle = `${title} — arldka`;
+const ogImage = new URL(image, Astro.site).href;
 const canonicalHref = new URL(Astro.url.pathname, Astro.site).href;
 const alternates = translations.map((l) => ({
   hreflang: l,
@@ -58,6 +62,12 @@ const switchHref = getRelativeLocaleUrl(altLang, translations.includes(altLang) 
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalHref} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={fullTitle} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
     <meta property="og:locale" content={lang.replace("-", "_")} />
     {publishedTime && <meta property="article:published_time" content={publishedTime.toISOString()} />}
     {modifiedTime && <meta property="article:modified_time" content={modifiedTime.toISOString()} />}
