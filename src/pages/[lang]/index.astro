@@ -102,8 +102,10 @@ const displayPosts = featuredPosts.length > 0 ? featuredPosts.slice(0, 3) : allP
       <a href={getRelativeLocaleUrl(lang, "projects", { normalizeLocale: false })}>{t("nav.projects")}</a>
       <span class="sep">·</span>
       <a href={getRelativeLocaleUrl(lang, "blog", { normalizeLocale: false })}>{t("nav.blog")}</a>
+      {/* Memo: re-enable once the Ech0 instance is hosted
       <span class="sep">·</span>
       <a href="https://memo.arldka.cloud" target="_blank" rel="noopener noreferrer">{t("nav.memo")} ↗</a>
+      */}
     </section>
   </div>
 </Layout>
