@@ -1,6 +1,7 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import TableOfContents from "@/components/TableOfContents.astro";
+import Comments from "@/components/Comments.astro";
 import { useTranslations, formatDate, languages, type Lang } from "@/i18n/ui";
 import { getCollection, render } from "astro:content";
 import { getRelativeLocaleUrl } from "astro:i18n";
@@ -68,6 +69,7 @@ const { pubDate, updatedDate } = post.data;
       <div class="post-content" data-copy={t("blog.copy")} data-copied={t("blog.copied")}>
         <Content />
       </div>
+      <Comments lang={lang} title={t("blog.comments")} />
     </article>
 
     {toc.length > 1 && <TableOfContents headings={toc} title={t("blog.toc")} />}
