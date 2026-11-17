@@ -55,6 +55,7 @@ export const ui = {
     "blog.copy": "Copy",
     "blog.copied": "Copied!",
     "blog.toc": "On this page",
+    "blog.comments": "Comments",
 
     "404.heading": "Page not found",
     "404.back": "Back to home",
@@ -107,6 +108,7 @@ export const ui = {
     "blog.copy": "复制",
     "blog.copied": "已复制",
     "blog.toc": "本页目录",
+    "blog.comments": "评论",
 
     "404.heading": "页面未找到",
     "404.back": "返回首页",

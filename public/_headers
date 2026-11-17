@@ -4,7 +4,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://giscus.app; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-src https://giscus.app; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 
 # Astro fingerprints everything in /_astro/ (CSS, JS, fonts), so cache it forever
 /_astro/*
