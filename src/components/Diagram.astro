@@ -1,0 +1,281 @@
+---
+interface Props {
+  /** Accessible name of the diagram. */
+  title: string;
+  caption?: string;
+}
+
+const { title, caption } = Astro.props;
+---
+
+<figure class="diagram">
+  <diagram-viewer>
+    <button type="button" class="frame" data-open aria-label={`Expand: ${title}`}>
+      <slot />
+      <span class="hint" aria-hidden="true">⤢ Expand</span>
+    </button>
+
+    <dialog class="viewer" aria-label={title}>
+      <div class="toolbar">
+        <button type="button" data-zoom-out aria-label="Zoom out">−</button>
+        <button type="button" class="zoom-label" data-zoom-reset aria-label="Reset zoom" data-zoom-label>100%</button>
+        <button type="button" data-zoom-in aria-label="Zoom in">+</button>
+        <button type="button" data-close aria-label="Close">✕</button>
+      </div>
+      <div class="stage" data-stage tabindex="0"></div>
+    </dialog>
+  </diagram-viewer>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<script>
+  const READABLE_WIDTH = 720; // px, a diagram never opens narrower than this
+  const MIN_ZOOM = 0.5;
+  const MAX_ZOOM = 4;
+  const STEP = 1.25;
+
+  class DiagramViewer extends HTMLElement {
+    connectedCallback() {
+      const open = this.querySelector<HTMLButtonElement>("[data-open]");
+      const dialog = this.querySelector<HTMLDialogElement>("dialog");
+      const stage = this.querySelector<HTMLElement>("[data-stage]");
+      const label = this.querySelector<HTMLElement>("[data-zoom-label]");
+      if (!open || !dialog || !stage || !label) return;
+
+      let zoom = 1;
+      let initialZoom = 1;
+
+      // Zoom keeps the point at the centre of the view where it was.
+      const setZoom = (next: number) => {
+        const svg = stage.querySelector("svg");
+        if (!svg) return;
+        const cx = (stage.scrollLeft + stage.clientWidth / 2) / stage.scrollWidth;
+        const cy = (stage.scrollTop + stage.clientHeight / 2) / stage.scrollHeight;
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
+        svg.style.width = `${zoom * 100}%`;
+        label.textContent = `${Math.round(zoom * 100)}%`;
+        stage.scrollLeft = cx * stage.scrollWidth - stage.clientWidth / 2;
+        stage.scrollTop = cy * stage.scrollHeight - stage.clientHeight / 2;
+      };
+
+      open.addEventListener("click", () => {
+        const svg = open.querySelector("svg");
+        if (!svg) return;
+        // Show a copy, so the preview in the article stays as it is.
+        stage.replaceChildren(svg.cloneNode(true));
+        dialog.showModal(); // Esc closes it natively
+        document.documentElement.style.overflow = "hidden";
+        stage.focus();
+        // On a phone, "fit to width" is unreadable: start zoomed in instead.
+        initialZoom = Math.min(MAX_ZOOM, Math.max(1, READABLE_WIDTH / stage.clientWidth));
+        zoom = 1;
+        setZoom(initialZoom);
+        stage.scrollTo(0, 0);
+      });
+
+      dialog.addEventListener("close", () => {
+        document.documentElement.style.overflow = "";
+        stage.replaceChildren();
+      });
+
+      // A click on the backdrop lands on the dialog itself, not on its content.
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) dialog.close();
+      });
+
+      this.querySelector("[data-close]")?.addEventListener("click", () => dialog.close());
+      this.querySelector("[data-zoom-in]")?.addEventListener("click", () => setZoom(zoom * STEP));
+      this.querySelector("[data-zoom-out]")?.addEventListener("click", () => setZoom(zoom / STEP));
+      this.querySelector("[data-zoom-reset]")?.addEventListener("click", () => {
+        setZoom(initialZoom);
+        stage.scrollTo(0, 0);
+      });
+
+      dialog.addEventListener("keydown", (event) => {
+        if (event.key === "+" || event.key === "=") setZoom(zoom * STEP);
+        else if (event.key === "-") setZoom(zoom / STEP);
+        else if (event.key === "0") {
+          setZoom(initialZoom);
+          stage.scrollTo(0, 0);
+        }
+      });
+
+      // Ctrl + wheel (and trackpad pinch) zooms instead of scrolling.
+      stage.addEventListener(
+        "wheel",
+        (event) => {
+          if (!event.ctrlKey) return;
+          event.preventDefault();
+          setZoom(zoom * (event.deltaY < 0 ? 1.1 : 1 / 1.1));
+        },
+        { passive: false },
+      );
+
+      // Drag to pan with a mouse. Touch screens already scroll natively.
+      let drag: { x: number; y: number; left: number; top: number } | null = null;
+
+      stage.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "touch" || event.button !== 0) return;
+        drag = { x: event.clientX, y: event.clientY, left: stage.scrollLeft, top: stage.scrollTop };
+        stage.setPointerCapture(event.pointerId);
+        stage.classList.add("dragging");
+      });
+
+      stage.addEventListener("pointermove", (event) => {
+        if (!drag) return;
+        stage.scrollLeft = drag.left - (event.clientX - drag.x);
+        stage.scrollTop = drag.top - (event.clientY - drag.y);
+      });
+
+      const endDrag = () => {
+        drag = null;
+        stage.classList.remove("dragging");
+      };
+      stage.addEventListener("pointerup", endDrag);
+      stage.addEventListener("pointercancel", endDrag);
+    }
+  }
+
+  customElements.define("diagram-viewer", DiagramViewer);
+</script>
+
+<style>
+  .diagram {
+    margin: var(--space-6) 0;
+    text-align: center;
+  }
+
+  diagram-viewer { display: block; }
+
+  /* A fixed-size frame, centred, whatever the shape of the diagram. The SVG is
+     scaled to fit inside it (its preserveAspectRatio is xMidYMid meet). */
+  .frame {
+    position: relative;
+    display: block;
+    box-sizing: border-box;
+    width: min(100%, 26rem);
+    height: 11rem;
+    margin: 0 auto;
+    padding: var(--space-3);
+    font: inherit;
+    color: inherit;
+    cursor: zoom-in;
+    /* Diagrams are rendered on a light canvas, so keep it light in dark mode too. */
+    background: #fafaf8;
+    border: 1px solid var(--color-text-muted);
+    border-radius: var(--radius-md);
+    transition: border-color 0.15s;
+  }
+
+  .frame:hover,
+  .frame:focus-visible { border-color: var(--color-accent); }
+
+  .frame:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+  .frame :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .hint {
+    position: absolute;
+    right: var(--space-2);
+    bottom: var(--space-2);
+    padding: 0 var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    line-height: 1.6;
+    color: #6b6b65;
+    background: #fafaf8;
+    border-radius: var(--radius-sm);
+  }
+
+  .frame:hover .hint,
+  .frame:focus-visible .hint { color: var(--color-accent); }
+
+  /* Fullscreen view */
+  .viewer {
+    margin: auto; /* the global margin reset would pin it to the top left */
+    width: min(96vw, 1800px);
+    height: 94vh;
+    max-width: none;
+    max-height: none;
+    padding: 0;
+    color: #1a1a18;
+    background: #fafaf8;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  .viewer::backdrop { background: rgb(0 0 0 / 0.6); }
+
+  .viewer[open] { display: flex; }
+
+  .stage {
+    flex: 1;
+    overflow: auto;
+    padding: var(--space-12) var(--space-4) var(--space-4);
+    cursor: grab;
+    outline: none;
+  }
+
+  .stage.dragging {
+    cursor: grabbing;
+    user-select: none;
+  }
+
+  .stage :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: none;
+    margin: 0 auto;
+  }
+
+  .toolbar {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    z-index: 1;
+    display: flex;
+    gap: var(--space-1);
+  }
+
+  .toolbar button {
+    min-width: 2.25rem;
+    height: 2.25rem;
+    padding: 0 var(--space-2);
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    color: #6b6b65;
+    background: #ffffff;
+    border: 1px solid #e2e0d8;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .toolbar button:hover { color: var(--color-accent); border-color: var(--color-accent); }
+
+  .toolbar .zoom-label {
+    min-width: 3.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  @media (max-width: 640px) {
+    .viewer {
+      width: 100vw;
+      height: 100dvh;
+      border: none;
+      border-radius: 0;
+    }
+  }
+
+  figcaption {
+    margin-top: var(--space-3);
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+  }
+</style>

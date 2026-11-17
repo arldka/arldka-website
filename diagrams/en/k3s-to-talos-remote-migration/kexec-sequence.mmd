@@ -1,0 +1,63 @@
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#fafaf8",
+  "primaryColor": "#ffffff",
+  "primaryTextColor": "#1a1a18",
+  "primaryBorderColor": "#6b6b65",
+  "lineColor": "#6b6b65",
+  "actorBkg": "#ffffff",
+  "actorBorder": "#6b6b65",
+  "actorTextColor": "#1a1a18",
+  "actorLineColor": "#e2e0d8",
+  "signalColor": "#6b6b65",
+  "signalTextColor": "#1a1a18",
+  "noteBkgColor": "#fef3c7",
+  "noteBorderColor": "#d97706",
+  "noteTextColor": "#1a1a18",
+  "sequenceNumberColor": "#fafaf8"
+}}}%%
+sequenceDiagram
+    autonumber
+    actor Me
+    participant C as Debug container (NAS)
+    participant F as Image Factory
+    participant D as Node (Debian)
+    participant T as Node (Talos)
+
+    Note over Me,T: 1. Fetch the Talos kernel and initramfs
+    D->>F: download kernel and initramfs for this node's schematic
+    F-->>D: kernel-amd64, initramfs-amd64.xz
+
+    Note over Me,T: 2. kexec into maintenance mode
+    Me->>D: kexec -l, sync, kexec -e
+    D->>T: jump into the Talos kernel, nothing written to disk
+
+    Note over Me,T: 3. Inspect, configure, install (talosctl runs on the LAN)
+    Me->>C: talosctl get disks, get links
+    C->>T: query the node (insecure)
+    T-->>C: disk serials and NIC names
+    Me->>C: gen secrets, gen config, validate
+    Me->>C: apply-config
+    C->>T: apply-config (insecure)
+    T->>T: install on the unused disk, reboot into it
+    Me->>C: bootstrap, kubeconfig
+    C->>T: bootstrap
+
+    Note over Me,T: 4. Back to Debian
+    Me->>C: talosctl reboot --mode powercycle
+    C->>T: power cycle, skipping kexec
+    T->>D: firmware boots Debian, boot order unchanged
+
+    Note over Me,T: 5. Boot Talos for one boot only
+    Me->>D: efibootmgr -v, find the Talos entry
+    Me->>D: efibootmgr --bootnext, reboot
+    D->>T: next boot goes to Talos
+    Me->>C: check that Talos is healthy
+    Me->>C: talosctl reboot --mode powercycle
+    C->>T: power cycle
+    T->>D: BootNext is one-shot, so Debian is back
+
+    Note over Me,T: 6. Make Talos the default
+    Me->>D: efibootmgr --bootorder, Talos first, reboot
+    D->>T: firmware boots Talos by default
+
+    Note over Me,T: 7. Once Talos is stable, wipe the Debian disk

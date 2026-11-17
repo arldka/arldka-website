@@ -1,0 +1,64 @@
+# Migration stages: before, during, after. Same content as the ASCII diagram
+# it replaces, without the NAS.
+#
+# Colours follow the site's light theme (src/styles/global.css).
+
+vars: {
+  d2-config: {
+    theme-overrides: {
+      N1: "#1a1a18" # text
+      N7: "#fafaf8" # canvas background
+    }
+  }
+}
+
+classes: {
+  zone: {
+    style: {
+      fill: "#f0efe9"
+      stroke: "#e2e0d8"
+      font-color: "#6b6b65"
+      border-radius: 8
+    }
+  }
+  k3s: {
+    style: {
+      fill: "#ffffff"
+      stroke: "#6b6b65"
+      font-color: "#1a1a18"
+      border-radius: 6
+    }
+  }
+  talos: {
+    style: {
+      fill: "#fef3c7"
+      stroke: "#d97706"
+      font-color: "#1a1a18"
+      border-radius: 6
+    }
+  }
+}
+
+grid-columns: 3
+grid-gap: 24
+
+before: "Before" {
+  class: zone
+  grid-columns: 1
+  cp: "NUC\nk3s control plane" { class: k3s }
+  worker: "ThinkPad\nk3s worker" { class: k3s }
+}
+
+during: "During" {
+  class: zone
+  grid-columns: 1
+  old: "NUC\nk3s control plane\n(all apps)" { class: k3s }
+  new: "ThinkPad\nTalos, new control plane" { class: talos }
+}
+
+after: "After" {
+  class: zone
+  grid-columns: 1
+  cp: "ThinkPad\nTalos control plane" { class: talos }
+  worker: "NUC\nTalos worker" { class: talos }
+}

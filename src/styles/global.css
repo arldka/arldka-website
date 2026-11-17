@@ -29,6 +29,12 @@
 
   --max-w-prose: 68ch;
   --max-w-site:  1100px;
+  --header-h:    3.5rem; /* sticky site header */
+}
+
+/* Phones: the header stacks into two rows (logo + actions, then links) */
+@media (max-width: 640px) {
+  :root { --header-h: 5.75rem; }
 }
 
 /* Inter has no CJK glyphs: prefer system CJK faces for Chinese */
