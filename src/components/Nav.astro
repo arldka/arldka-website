@@ -41,7 +41,7 @@ const norm = (p: string) => p.replace(/\/$/, "");
         })}
         <li>
           <a href="https://memo.arldka.cloud" class="nav-link" target="_blank" rel="noopener noreferrer">
-            {t("nav.memo")} ↗
+            {t("nav.memo")}
           </a>
         </li>
       </ul>
@@ -69,7 +69,7 @@ const norm = (p: string) => p.replace(/\/$/, "");
     display: flex;
     align-items: center;
     gap: var(--space-6);
-    height: 3.5rem;
+    height: var(--header-h);
   }
 
   .nav-logo {
@@ -99,6 +99,7 @@ const norm = (p: string) => p.replace(/\/$/, "");
     text-decoration: none;
     padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-sm);
+    white-space: nowrap;
     transition: color 0.15s, background 0.15s;
   }
 
@@ -130,14 +131,37 @@ const norm = (p: string) => p.replace(/\/$/, "");
     border-color: var(--color-text-muted);
   }
 
+  /* Phones: two rows (logo + actions, then links). Rows flow naturally, so the
+     header's bottom border always sits below both. Total = --header-h (5.75rem). */
   @media (max-width: 640px) {
-    .nav-links {
+    .nav {
+      flex-wrap: wrap;
+      height: auto;
       gap: 0;
     }
 
+    .nav-logo,
+    .nav-actions {
+      height: 3.25rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-links {
+      order: 3;
+      flex: 0 0 100%;
+      height: 2.5rem;
+      gap: 0;
+      margin-left: calc(var(--space-2) * -1); /* align link text with the page gutter */
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .nav-links::-webkit-scrollbar { display: none; }
+
     .nav-link {
       padding: var(--space-1) var(--space-2);
-      font-size: 0.8rem;
+      font-size: 0.85rem;
     }
   }
 </style>

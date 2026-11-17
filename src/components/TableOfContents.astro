@@ -1,0 +1,124 @@
+---
+interface Props {
+  headings: { slug: string; text: string }[];
+  title: string;
+}
+
+const { headings, title } = Astro.props;
+---
+
+<table-of-contents>
+  <aside class="toc" aria-label={title}>
+    <p class="toc-title">{title}</p>
+    <ol class="toc-list" role="list">
+      {headings.map((h) => (
+        <li><a href={`#${h.slug}`} data-toc={h.slug}>{h.text}</a></li>
+      ))}
+    </ol>
+  </aside>
+</table-of-contents>
+
+<script>
+  class TableOfContents extends HTMLElement {
+    #observer?: IntersectionObserver;
+
+    connectedCallback() {
+      const links = new Map<string, HTMLAnchorElement>();
+      this.querySelectorAll<HTMLAnchorElement>("[data-toc]").forEach((a) => links.set(a.dataset.toc!, a));
+
+      const headings = [...links.keys()]
+        .map((id) => document.getElementById(id))
+        .filter((el): el is HTMLElement => el !== null);
+      if (!headings.length) return;
+
+      // The active section is the last heading above 30% of the viewport height.
+      const update = () => {
+        const line = window.innerHeight * 0.3;
+        let current = headings[0];
+        for (const h of headings) {
+          if (h.getBoundingClientRect().top <= line) current = h;
+        }
+        links.forEach((a, id) => {
+          if (id === current.id) a.setAttribute("aria-current", "true");
+          else a.removeAttribute("aria-current");
+        });
+      };
+
+      // Re-evaluate only when a heading crosses that line, not on every scroll event.
+      this.#observer = new IntersectionObserver(update, { rootMargin: "0px 0px -70% 0px" });
+      headings.forEach((h) => this.#observer!.observe(h));
+      update();
+    }
+
+    disconnectedCallback() {
+      this.#observer?.disconnect();
+    }
+  }
+
+  customElements.define("table-of-contents", TableOfContents);
+</script>
+
+<style>
+  /* Custom elements are inline by default; as a block filling the grid row it
+     gives the sticky child room to travel along the whole article. */
+  table-of-contents {
+    display: block;
+    align-self: stretch;
+  }
+
+  .toc {
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-8));
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-3);
+  }
+
+  .toc-list {
+    list-style: none;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .toc-list a {
+    position: relative;
+    display: block;
+    padding: var(--space-2) 0 var(--space-2) var(--space-4);
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .toc-list a::before {
+    content: "";
+    position: absolute;
+    left: -4px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin-top: -3.5px;
+    border-radius: 50%;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .toc-list a:hover,
+  .toc-list a[aria-current="true"] { color: var(--color-text); }
+
+  .toc-list a[aria-current="true"]::before {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  @media (max-width: 1000px) {
+    table-of-contents { display: none; }
+  }
+</style>

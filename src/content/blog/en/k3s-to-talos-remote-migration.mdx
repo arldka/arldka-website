@@ -1,0 +1,394 @@
+---
+title: "From k3s to Talos Without Touching the Hardware"
+description: "How I replaced Debian and k3s with Talos Linux on a two-node homelab in France without any physical access, controlled from all the way across the world, behind a heavily restricted network. "
+pubDate: 2026-11-17
+tags: ["kubernetes", "talos", "homelab", "k3s", "tailscale"]
+draft: false
+---
+
+import Diagram from "../../../components/Diagram.astro";
+import Stages from "../../../assets/diagrams/en/k3s-to-talos-remote-migration/migration-stages.svg";
+import Storage from "../../../assets/diagrams/en/k3s-to-talos-remote-migration/storage-layout.svg";
+import Kexec from "../../../assets/diagrams/en/k3s-to-talos-remote-migration/kexec-sequence.svg";
+import Architecture from "../../../assets/diagrams/en/k3s-to-talos-remote-migration/homelab-architecture.svg";
+
+My homelab is two small machines in France. I was not there: I was on the other side of the world, behind a heavily restricted network. The only way in was SSH over Tailscale, which doesn't work well from there on its own, so I had to put some v2ray shenanigans on top of it just to reach my own machines. And I wanted to replace the operating system underneath a running Kubernetes cluster.
+
+This is how that went, and why I wanted to do it in the first place.
+
+## Where I started
+
+The cluster was k3s on Debian 13, two nodes: one control plane and one worker. Flux reconciled everything from Git, storage was a mix of `local-path` and an NFS CSI driver pointing at my NAS, and both apps and kube-apiserver apps were both exposed through the Tailscale operator.
+
+It worked. But I was not happy with the upkeep:
+
+- **Upgrades.** I used Rancher's system-upgrade-controller to auto-upgrade k3s. It's one more controller to keep alive, with its own plans and its own failure modes, and the OS under it (Debian) still needed separate attention.
+- **The provisioner.** `local-path` is fine until you remember that a volume is a directory on one specific node. Two of my claims still used it, which created a heavy use of NFS-csi pvcs even for rwo workloads causing unpleasant noise pollution where the servers run because of the constant disk activity it caused on the NAS. Futhermore, it also meant that all of the high speed storage of my hardware was by and large left unused.
+- **Configuration.** k3s is configured by a mix of flags, `/etc/rancher` files and whatever was on the host. The state of the machine wasn't something I could read in a repository.
+
+There was exactly one thing I liked: with a single control plane, **kine on SQLite** instead of etcd. Lower overhead was the one real advantage of staying.
+
+## The etcd worry, really that hungry ?
+
+Talos runs a standard etcd. So before moving, I wanted to know what I was giving up.
+
+The k3s team publishes [resource profiling](https://docs.k3s.io/reference/resource-profiling) for exactly this comparison. For a single-node server running a simple workload, the minimum memory they measured was about 1596 MB with SQLite and 1606 MB with embedded etcd on an Intel machine. That's a 10 MB difference. The gap only grows on a Pi 4 with an agent attached, to roughly 200 MB.
+
+Under load it can even go the other way. kine translates etcd API calls into SQL, and a [third-party vCluster benchmark](https://vcluster.com/pro/docs/load-testing/results) found k3s with SQLite used more CPU than the etcd-based distributions under heavy API traffic, and could time out or get throttled.
+
+The real cost of etcd is the disk. It fsyncs every write to its log and wants a p99 fsync latency under about 10 ms ([Red Hat's etcd guidance](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/etcd/etcd-practices) says the same). That's what kills SD cards and cheap SSDs. My control plane runs on an NVMe drive.
+
+And a single control plane has no quorum either way, so backups are what protect me, not the datastore.
+
+Here's what it actually costs on my cluster:
+
+etcd on talos-1 uses **1334 MB** of memory, with a p99 WAL fsync of **1.82 ms**. That's well under the 10 ms budget.
+
+I'm not going to pretend the savings from SQLite were imaginary. But they were small enough that they were never a reason to stay.
+
+## The hardware
+
+<Diagram
+  title="Network architecture"
+  caption="How I reach the homelab: Tailscale, tunnelled through a v2ray relay."
+>
+  <Architecture
+    role="img"
+    aria-label="Architecture: a laptop in mainland China runs Tailscale through a v2ray client, which connects over Shadowsocks to a v2ray server on a VPS near mainland China. Traffic then goes over the internet to the home router in France, behind which talos-1, talos-2 and the NAS share one LAN."
+  />
+</Diagram>
+
+<table>
+  <colgroup>
+    <col style={{ width: "7rem" }} />
+    <col />
+    <col />
+  </colgroup>
+  <thead>
+    <tr><th>Node</th><th>Hardware</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>talos-1</code></td><td>Old ThinkPad, 8 CPU / 40 GB / 2x256GB nvme</td><td>control plane (schedulable)</td></tr>
+    <tr><td><code>talos-2</code></td><td>Intel N100 NUC, 4 CPU / 16 GB / 500GB sata + 1TB nvme</td><td>worker</td></tr>
+    <tr><td><code>nas</code></td><td>UGREEN DXP4800 N100, 4CPU / 8 GB / 3x18TB Seagate MFR</td><td>NAS</td></tr>
+  </tbody>
+</table>
+
+Note that the roles swapped. In the k3s cluster the NUC was the control plane and the ThinkPad was the worker. In the new cluster the ThinkPad is the control plane. That's not an accident, as the next section explains.
+
+A big missing part of my setup is better configurable network hardware to more easily configure routes, firewall, VLANs.
+
+## The plan: Blue-green one machine at a time. 
+
+I couldn't take the whole cluster down, because a cluster that is down also takes my only way in with it. So I built the new cluster next to the old one:
+
+1. **Consolidate.** Move every workload onto the original k3s control plane (the NUC) and drain the k3s worker (the ThinkPad).
+2. **Replace the worker.** Turn the freed ThinkPad into the new Talos control plane, a brand new single-node cluster.
+3. **Reinstall the workloads.** Point Flux at the new cluster and let it bring everything back. Most of my stateful data already lived on the NAS behind the NFS CSI driver, so the new cluster just mounts the same data. No restore from backup was needed for those volumes.
+4. **Retire k3s.** Drain and stop k3s on the NUC, convert it to Talos, and join it to the new cluster as a worker.
+
+At every step there was a machine still running and reachable over Tailscale. The riskiest moment was the conversion itself, when a machine goes from "Debian I can SSH into" to "Talos, which has no SSH at all".
+
+A slight advantage of using the Thinkpad in my current setup, it taking advantage of the battery that is kept at 50% charge si it gives me a machine from which I can send magic package wo wake up the rest of the infrastructure as I don't currently have a UPS running. 
+
+<Diagram
+  title="Before, during and after"
+  caption="The two machines at each stage of the migration."
+>
+  <Stages
+    role="img"
+    aria-label="Three stages. Before: the NUC is the k3s control plane and the ThinkPad is the k3s worker. During: the NUC stays the k3s control plane and carries all the apps, while the ThinkPad becomes the new Talos control plane. After: the ThinkPad is the Talos control plane and the NUC is a Talos worker."
+  />
+</Diagram>
+
+## Designing for no physical access
+
+A Talos node has no SSH and no shell. If it comes up without a network, I can't fix it from where I am. So everything that matters had to be decided *before* the machine rebooted.
+
+### Tailscale from the first boot
+
+I baked the Tailscale extension into the image with an [Image Factory](https://factory.talos.dev) schematic, so the node joins my tailnet the moment it boots. The Longhorn and NFS needs come from the other extensions:
+
+```yaml
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/iscsi-tools
+      - siderolabs/util-linux-tools
+      - siderolabs/nfs-utils
+      - siderolabs/tailscale
+      - siderolabs/realtek-firmware
+      - siderolabs/amd-ucode      # intel-ucode on the NUC
+```
+
+The Tailscale auth key is passed as an environment variable to the extension service:
+
+```yaml
+apiVersion: v1alpha1
+kind: ExtensionServiceConfig
+name: tailscale
+environment:
+  - TS_AUTHKEY={{ .Node.Data.tsKey }}
+```
+
+(In the repository that value is rendered from an encrypted file. More on that below.)
+
+### A static address and an explicit LAN subnet
+
+I don't want Talos picking the wrong interface or a Tailscale address as its node IP. Static addressing and a pinned subnet take that choice away:
+
+```yaml
+machine:
+  certSANs:
+    - talos-1.<tailnet>
+  network:
+    interfaces:
+      - deviceSelector:
+          hardwareAddr: "<mac-address>"
+        dhcp: false
+        addresses:
+          - 192.168.1.52/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 192.168.1.254
+---
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+nodeIP:
+  validSubnets:
+    - 192.168.1.0/24
+```
+
+The MagicDNS name goes into the API server certificate too, so `kubectl` over the tailnet validates:
+
+```yaml
+apiVersion: v1alpha1
+kind: KubeAPIServerConfig
+certExtraSANs:
+  - 192.168.1.52
+  - talos-1.<tailnet>
+```
+
+### Picking the install disk safely
+
+The ThinkPad has more than one disk. Installing on the wrong one would be a bad day, so I select the disk by serial number rather than by device name, which can change:
+
+```yaml
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+provisioning:
+  diskSelector:
+    match: disk.serial == "<disk-serial>"
+  wipe: true
+```
+
+The second disk isn't wasted. A user volume claims any non-system disk of 100 GB or more for Longhorn:
+
+```yaml
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: longhorn
+provisioning:
+  diskSelector: { match: "!system_disk" }
+  minSize: 100GB
+filesystem: { type: xfs }
+```
+
+<Diagram
+  title="Disk layout, before and after"
+  caption="Talos went onto the disk that was unused. The Debian disk was wiped once Talos was stable and reachable, then claimed by Longhorn."
+>
+  <Storage
+    role="img"
+    aria-label="Disk layout before and after. talos-1: before, nvme1 held Debian and nvme2 was unused; after, nvme1 is Longhorn and nvme2 is Talos. talos-2: before, the 1 TB nvme held Debian and the 500 GB sata was unused; after, the nvme is Longhorn and the sata is Talos."
+  />
+</Diagram>
+
+## Installing Talos next to Debian with kexec
+
+The idea of using kexec is simple: from the running Debian system, load the Talos kernel and initramfs and jump straight into them without going through the firmware. If the machine doesn't come back, a power cycle returns you to the old OS, because nothing has been written to disk yet. Only once the node is up in Talos' maintenance mode, reachable over the LAN, do you apply a machine config and let Talos install itself to the disk you chose.
+
+I did it in two stages. First, install Talos on the disk that was unused and prove that it works, while Debian stays bootable. Then make Talos the default boot entry, and only after that wipe Debian.
+
+<Diagram
+  title="Install sequence"
+  caption="Every step from the first download to Talos booting by default, on one node."
+>
+  <Kexec
+    role="img"
+    aria-label="Sequence diagram of the install on one node. The talosctl commands run from a debug container on the NAS, on the LAN; the Debian-side commands run on the node itself. Download the kernel and initramfs from Image Factory, kexec from Debian into Talos maintenance mode, inspect disks and links, generate, validate and apply the config so Talos installs on the unused disk, bootstrap, power cycle back into Debian, boot Talos once with BootNext, power cycle back to Debian, then make Talos the default UEFI boot entry before wiping Debian."
+  />
+</Diagram>
+
+### Fetch the right image for the right node
+
+Each node has its own Image Factory schematic, because the two machines need different extensions. The ThinkPad is AMD and needs `amd-ucode`; the NUC is Intel and needs `intel-ucode`. Don't mix them up: Intel microcode on an AMD machine can freeze the node completely, and a frozen node is exactly the thing I can't fix from here.
+
+On the Debian box, download the kernel and the initramfs for that node's schematic:
+
+```bash
+mkdir -p /boot/talos
+cd /boot/talos
+curl -LO https://factory.talos.dev/image/<SCHEMATIC_ID>/<TALOS_VERSION>/kernel-amd64
+curl -LO https://factory.talos.dev/image/<SCHEMATIC_ID>/<TALOS_VERSION>/initramfs-amd64.xz
+```
+
+### Jump into Talos
+
+Load them with kexec, flush the disks, and execute:
+
+```bash
+kexec -l kernel-amd64 --initrd=initramfs-amd64.xz \
+  --command-line="talos.platform=metal console=tty0 init_on_alloc=1 slab_nomerge pti=on ip=<IP>::<GW>:<NETMASK>:talos-1:<IFACE>:off"
+sync
+kexec -e
+```
+
+The `ip=` argument gives the node a static address in maintenance mode, in the form `client::gateway:netmask:hostname:interface:autoconf`. Without a machine config the Tailscale extension isn't running yet, so at this point the node is reachable only on the LAN. That's the whole reason the addresses had to be pinned in advance.
+
+### Look before you configure
+
+From a terminal that can reach the node's LAN address, ask Talos what it sees:
+
+```bash
+talosctl -n <IP> get disks --insecure
+talosctl -n <IP> get links --insecure
+```
+
+Check the config patch against what these commands return: the disk serial, the interface name, the MAC address. This is the last cheap moment to catch a mistake.
+
+One thing I left out on purpose: the Longhorn claim. Debian was still running on the other disk, and a claim for "any non-system disk" would have grabbed it. The claim only goes in once Talos is completely set up.
+
+### Generate, validate, apply
+
+Create the cluster secrets and the machine config. Back up `secrets.yaml` somewhere safe, because you can't recreate the cluster identity without it:
+
+```bash
+talosctl gen secrets -o secrets.yaml
+talosctl gen config homelab https://<LAN_IP>:6443 \
+  --with-secrets secrets.yaml --config-patch @patch.yaml -o _out
+```
+
+Validate it before it goes anywhere near the node:
+
+```bash
+talosctl validate --config _out/controlplane.yaml --mode metal
+```
+
+If that's clean, apply it. This is the moment Talos installs itself, on the disk selected by serial:
+
+```bash
+talosctl apply-config --insecure -n <IP> -f _out/controlplane.yaml
+```
+
+### Bootstrap
+
+Point `talosctl` at the new node and bring the cluster up:
+
+```bash
+export TALOSCONFIG=$PWD/_out/talosconfig
+talosctl config endpoint <IP>; talosctl config node <IP>
+talosctl bootstrap
+talosctl kubeconfig
+```
+
+### Back to Debian, on purpose
+
+With the cluster up, I did something that sounds backwards: I rebooted the node into Debian.
+
+```bash
+talosctl reboot --mode powercycle
+```
+
+The `powercycle` mode skips kexec and goes through the firmware. The boot order was unchanged, so the machine came back as Debian. That was the proof I wanted: Talos was installed on what used to be the unused disk, and Debian had never been touched.
+
+### Making Talos boot on its own
+
+Now the machine had to boot into Talos without me, and I did it in two steps, with a fallback each time. Both steps use plain UEFI boot entries, managed from Debian with `efibootmgr`.
+
+When Talos installed itself on the spare disk, it also registered its own boot entry in the firmware. List the entries and find it:
+
+```bash
+efibootmgr -v
+```
+
+Then boot into it once, and only once:
+
+```bash
+efibootmgr --bootnext <entry number>
+systemctl reboot
+```
+
+`BootNext` is one-shot. If Talos hadn't come up, the next boot would have gone back to Debian by itself. It did come up, I checked it from the outside, and I power-cycled again, which put Debian back because the `BootNext` had been used up.
+
+Only then did I make Talos the default, still from Debian, and rebooted:
+
+
+```bash
+efibootmgr --bootorder <talos entry>,<debian entry>
+systemctl reboot
+```
+
+The node came up as Talos with Debian still on its disk as a fallback. Only after Talos had proven stable and reachable did I wipe the Debian disk.
+
+#### Why not GRUB?
+
+The obvious way to chain-load Talos from Debian is a GRUB entry. I didn't use it, and I couldn't have kept it. GRUB lives on the Debian disk, and that disk was going to be wiped. The moment it was, the boot menu, the entry and the bootloader would all disappear, and the machine would have nothing left to boot from.
+
+The UEFI entry has no such problem. It lives in the firmware's own storage, and it points to the boot partition Talos created on its own disk. Wiping Debian doesn't touch either of them, so the finished system doesn't depend on anything that was left over from the old install.
+
+## Cilium instead of Flannel and kube-proxy
+
+I wanted Cilium, so I deleted Talos' default Flannel and turned off kube-proxy through two small config documents:
+
+```yaml
+apiVersion: v1alpha1
+kind: KubeFlannelCNIConfig
+$patch: delete
+---
+apiVersion: v1alpha1
+kind: KubeProxyConfig
+enabled: false
+```
+
+Cilium itself is installed by Flux. Two values matter on Talos with Tailscale:
+
+```yaml
+kubeProxyReplacement: true
+k8sServiceHost: localhost   # Talos' KubePrism endpoint
+k8sServicePort: 7445
+devices: ["eth+", "en+"]    # physical NICs only, keeps Cilium off tailscale0
+socketLB:
+  hostNamespaceOnly: true   # needed for the Tailscale operator
+```
+
+Pinning `devices` to physical interfaces keeps Cilium from trying to manage `tailscale0`, which is the interface my own access depends on.
+
+## Making upgrades boring
+
+The reason I left k3s is now one line in a file. Machine configuration lives in the repository, managed with [topf](https://github.com/postfinance/topf), with secrets encrypted by SOPS and age. Upgrading Talos or Kubernetes means bumping a version in `topf.yaml`:
+
+```yaml
+kubernetesVersion: 1.37.1
+talosVersion: 1.14.5
+```
+
+and running `topf upgrade`. Renovate opens the pull requests for everything else (Cilium, Flux, the Tailscale operator).
+
+There is a catch with a single control plane: the API is down while `talos-1` reboots, and if the Tailscale extension doesn't come back I'm locked out. Upgrades are the moment I most want someone at home. For this reason I keep a LAN path to the node when I run an upgrade.
+
+## Mistakes along the way
+
+- **Config documents changed shape.** Talos is moving from the single `v1alpha1` machine config to separate documents (`UnattendedInstallConfig`, `KubeNodeConfig`, `HostnameConfig`, ...). My patches went through three iterations before the validator and the node agreed.
+- **I forgot disk encryption.** I never set up LUKS on the Talos nodes. Talos can encrypt its system partitions, but it's a decision you make at install time, and I only thought of it afterwards. For now I'm planning to encrypt the sensitive volumes through Longhorn instead. That protects the data in those PVCs, but it doesn't replace encrypting the node disks themselves: the machine secrets, etcd and everything else on the system partitions stay readable to anyone who holds the disk.
+- **I forgot Secure Boot.** Same story, and it's still on my list. Talos supports it with signed images, and it's also what makes tying disk encryption to the TPM worthwhile. Doing it later means enrolling keys in the firmware of machines I can't touch, so it will need the same care as the original migration.
+
+## Was it worth it?
+
+Yes. Now the whole machine is in Git: the OS image, the network settings, the disk layout, the extensions. A reinstall is a repository and an age key, not an afternoon of remembering what I did to a Debian box. The kine/SQLite advantage was real on paper and small in practice.
+
+What I'd tell someone considering the same move without physical access: bake your way back in (Tailscale in the image), select disks by serial, pin the network, and make sure at every step that one machine is still alive and reachable.
+
+If I'm honest, the migration wasn't only about etcd or SQLite. It came from new things I wanted to do with the homelab, and from a slow build-up of small annoyances with the old setup. It was also partly procrastination: I replaced the operating system under a running cluster instead of starting on what I had meant to build in the first place. It was a good detour all the same !
+
+The configuration is public if you want to see how it all fits together: [arldka/kubernetes-homelab](https://gitlab.com/arldka/kubernetes-homelab).

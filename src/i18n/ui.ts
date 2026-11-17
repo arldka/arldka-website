@@ -54,6 +54,7 @@ export const ui = {
     "blog.readingTime": "{n} min read",
     "blog.copy": "Copy",
     "blog.copied": "Copied!",
+    "blog.toc": "On this page",
 
     "404.heading": "Page not found",
     "404.back": "Back to home",
@@ -105,6 +106,7 @@ export const ui = {
     "blog.readingTime": "{n} 分钟阅读",
     "blog.copy": "复制",
     "blog.copied": "已复制",
+    "blog.toc": "本页目录",
 
     "404.heading": "页面未找到",
     "404.back": "返回首页",

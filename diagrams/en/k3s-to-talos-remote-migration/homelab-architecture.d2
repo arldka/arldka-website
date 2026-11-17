@@ -1,0 +1,116 @@
+direction: down
+
+# Macro view: how I reach the homelab from mainland China.
+# In-cluster details live in a separate diagram.
+#
+# Colours follow the site's light theme (src/styles/global.css).
+
+vars: {
+  d2-config: {
+    theme-overrides: {
+      N1: "#1a1a18" # text
+      N7: "#fafaf8" # canvas background
+    }
+  }
+}
+
+classes: {
+  zone: {
+    style: {
+      fill: "#f0efe9"
+      stroke: "#e2e0d8"
+      font-color: "#6b6b65"
+      border-radius: 8
+    }
+  }
+  group: {
+    style: {
+      fill: "#fafaf8"
+      stroke: "#e2e0d8"
+      font-color: "#6b6b65"
+      border-radius: 8
+    }
+  }
+  node: {
+    style: {
+      fill: "#ffffff"
+      stroke: "#6b6b65"
+      font-color: "#1a1a18"
+      border-radius: 6
+    }
+  }
+  proxy: {
+    style: {
+      fill: "#fef3c7"
+      stroke: "#d97706"
+      font-color: "#1a1a18"
+      border-radius: 6
+    }
+  }
+  edge: {
+    style: {
+      stroke: "#6b6b65"
+      font-color: "#6b6b65"
+    }
+  }
+  proxy-edge: {
+    style: {
+      stroke: "#d97706"
+      stroke-width: 3
+      font-color: "#b45309"
+    }
+  }
+  tunnel: {
+    style: {
+      stroke: "#1d4ed8"
+      stroke-dash: 4
+      font-color: "#1d4ed8"
+    }
+  }
+}
+
+china: "Mainland China" {
+  class: zone
+  laptop: "Laptop" {
+    class: group
+    ts: "Tailscale client" { class: node }
+    v2: "v2ray client" { class: proxy }
+    ts -> v2: "WireGuard\npackets" { class: edge }
+  }
+}
+
+relay: "VPS near mainland China" {
+  class: zone
+  v2s: "v2ray server" { class: proxy }
+}
+
+internet: "Internet" {
+  class: zone
+  tailscale: "Tailscale\ncontrol plane + DERP relays" { class: node }
+}
+
+home: "Home, France" {
+  class: zone
+  isp: "ISP router" { class: node }
+
+  lan: "LAN 192.168.1.0/24" {
+    class: group
+    talos1: "talos-1\nThinkPad, control plane" { class: node }
+    talos2: "talos-2\nNUC, worker" { class: node }
+    nas: "NAS \nNFS, debug containers" { class: node }
+
+    talos1 -> nas: "NFS" { class: edge }
+    talos2 -> nas: "NFS" { class: edge }
+  }
+
+  isp -> lan { class: edge }
+}
+
+# Physical path of the traffic
+china.laptop.v2 -> relay.v2s: "Shadowsocks" { class: proxy-edge }
+relay.v2s -> internet.tailscale { class: edge }
+internet.tailscale -> home.isp { class: edge }
+
+# Logical path: the encrypted Tailscale tunnel to the nodes
+china.laptop.ts -> home.lan.talos1: "Tailscale tunnel" { class: tunnel }
+china.laptop.ts -> home.lan.talos2 { class: tunnel }

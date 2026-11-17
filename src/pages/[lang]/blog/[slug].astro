@@ -1,5 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import TableOfContents from "@/components/TableOfContents.astro";
 import { useTranslations, formatDate, languages, type Lang } from "@/i18n/ui";
 import { getCollection, render } from "astro:content";
 import { getRelativeLocaleUrl } from "astro:i18n";
@@ -23,7 +24,8 @@ export const getStaticPaths = (async () => {
 type Props = InferGetStaticPropsType<typeof getStaticPaths>;
 const { post, translations } = Astro.props;
 const lang = Astro.params.lang as Lang;
-const { Content } = await render(post);
+const { Content, headings } = await render(post);
+const toc = headings.filter((h) => h.depth === 2);
 const t = useTranslations(lang);
 const { pubDate, updatedDate } = post.data;
 ---
@@ -42,9 +44,11 @@ const { pubDate, updatedDate } = post.data;
       <a href={getRelativeLocaleUrl(lang, "blog", { normalizeLocale: false })}>{t("blog.backToList")}</a>
     </nav>
 
+    <div class="post-layout">
     <article class="post">
       <header class="post-header">
         <h1>{post.data.title}</h1>
+        <p class="post-lead">{post.data.description}</p>
         <div class="post-meta">
           <time datetime={pubDate.toISOString()} class="tag">
             {formatDate(pubDate, lang, "long")}
@@ -65,6 +69,9 @@ const { pubDate, updatedDate } = post.data;
         <Content />
       </div>
     </article>
+
+    {toc.length > 1 && <TableOfContents headings={toc} title={t("blog.toc")} />}
+    </div>
   </div>
 </Layout>
 
@@ -118,12 +125,33 @@ const { pubDate, updatedDate } = post.data;
 
   .breadcrumb a:hover { color: var(--color-text); }
 
+  .post-layout {
+    display: grid;
+    grid-template-columns: minmax(0, var(--max-w-prose)) 13rem;
+    gap: var(--space-16);
+    align-items: start;
+  }
+
   .post-header {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-3);
     padding-bottom: var(--space-8);
+    margin-bottom: var(--space-12);
     border-bottom: 1px solid var(--color-border);
+  }
+
+  .post-header h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+  }
+
+  .post-lead {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-text-muted);
   }
 
   .post-meta {
@@ -131,28 +159,87 @@ const { pubDate, updatedDate } = post.data;
     align-items: center;
     gap: var(--space-3);
     flex-wrap: wrap;
+    margin-top: var(--space-2);
   }
 
-  .post-tags { list-style: none; display: flex; gap: var(--space-2); }
+  .post-tags { list-style: none; display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
   .post-content {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-5);
     max-width: var(--max-w-prose);
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    overflow-wrap: break-word; /* long paths and inline code never push the page sideways */
   }
 
-  .post-content :global(h2) { margin-top: var(--space-8); }
-  .post-content :global(h3) { margin-top: var(--space-6); }
+  .post-content :global(h2) {
+    margin-top: var(--space-12);
+    font-size: 1.375rem;
+    letter-spacing: -0.01em;
+  }
+  .post-content :global(h2:first-child) { margin-top: 0; }
+  .post-content :global(h3) { margin-top: var(--space-6); font-size: 1.2rem; }
+  .post-content :global(h2), .post-content :global(h3) { scroll-margin-top: calc(var(--header-h) + var(--space-6)); }
+
+  .post-content :global(strong) { font-weight: 600; }
   .post-content :global(ul), .post-content :global(ol) { padding-left: var(--space-6); }
-  .post-content :global(li) { margin-bottom: var(--space-1); }
+  .post-content :global(li) { margin-bottom: var(--space-2); padding-left: var(--space-1); }
+  .post-content :global(li::marker) { color: var(--color-accent); }
+
   .post-content :global(blockquote) {
     border-left: 3px solid var(--color-accent);
-    padding-left: var(--space-4);
-    color: var(--color-text-muted);
+    background: var(--color-accent-bg);
+    padding: var(--space-3) var(--space-4);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    color: var(--color-text);
     font-style: italic;
   }
-  .post-content :global(a) { color: var(--color-link); }
+
+  .post-content :global(a) {
+    color: var(--color-link);
+    text-decoration-thickness: 1px;
+  }
+
+  .post-content :global(pre) {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    padding: var(--space-5);
+  }
+
+  .post-content :global(table) {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .post-content :global(th),
+  .post-content :global(td) {
+    text-align: left;
+    overflow-wrap: anywhere;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .post-content :global(th) {
+    background: var(--color-bg-alt);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+  .post-content :global(tbody tr:last-child td) { border-bottom: none; }
+
+  .post-content :global(hr) { margin: var(--space-8) 0; }
+
+  @media (max-width: 1000px) {
+    .post-layout { grid-template-columns: minmax(0, 1fr); }
+  }
 
   .post-content :global(.code-block) { position: relative; }
 

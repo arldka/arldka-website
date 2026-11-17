@@ -1,0 +1,119 @@
+# Storage layout of both nodes, before and after the migration.
+# Talos went onto the disk that was unused; the Debian disk was wiped once
+# Talos was stable and reachable, then claimed by Longhorn.
+#
+# Colours follow the site's light theme (src/styles/global.css).
+
+vars: {
+  d2-config: {
+    theme-overrides: {
+      N1: "#1a1a18" # text
+      N7: "#fafaf8" # canvas background
+    }
+  }
+}
+
+classes: {
+  node: {
+    style: {
+      fill: "#f0efe9"
+      stroke: "#e2e0d8"
+      font-color: "#6b6b65"
+      border-radius: 8
+    }
+  }
+  stage: {
+    style: {
+      fill: "#fafaf8"
+      stroke: "#e2e0d8"
+      font-color: "#6b6b65"
+      border-radius: 8
+    }
+  }
+  debian: {
+    style: {
+      fill: "#ffffff"
+      stroke: "#6b6b65"
+      font-color: "#1a1a18"
+      border-radius: 6
+    }
+  }
+  unused: {
+    style: {
+      fill: "#fafaf8"
+      stroke: "#6b6b65"
+      stroke-dash: 3
+      font-color: "#6b6b65"
+      border-radius: 6
+    }
+  }
+  talos: {
+    style: {
+      fill: "#fef3c7"
+      stroke: "#d97706"
+      font-color: "#1a1a18"
+      border-radius: 6
+    }
+  }
+  longhorn: {
+    style: {
+      fill: "#dbeafe"
+      stroke: "#1d4ed8"
+      font-color: "#1a1a18"
+      border-radius: 6
+    }
+  }
+  step: {
+    style: {
+      stroke: "#6b6b65"
+      font-color: "#6b6b65"
+    }
+  }
+}
+
+grid-columns: 1
+grid-gap: 24
+
+talos1: "talos-1 (ThinkPad)" {
+  class: node
+  grid-columns: 2
+  grid-gap: 90
+
+  before: "Before" {
+    class: stage
+    grid-columns: 1
+    nvme1: "nvme1 · 256 GB\nDebian" { class: debian }
+    nvme2: "nvme2 · 256 GB\nunused" { class: unused }
+  }
+
+  after: "After" {
+    class: stage
+    grid-columns: 1
+    nvme1: "nvme1 · 256 GB\nLonghorn" { class: longhorn }
+    nvme2: "nvme2 · 256 GB\nTalos" { class: talos }
+  }
+
+  before -> after: "Debian wiped once\nTalos was stable" { class: step }
+}
+
+talos2: "talos-2 (NUC)" {
+  class: node
+  grid-columns: 2
+  grid-gap: 90
+
+  before: "Before" {
+    class: stage
+    grid-columns: 1
+    nvme: "nvme · 1 TB\nDebian" { class: debian }
+    sata: "sata · 500 GB\nunused" { class: unused }
+  }
+
+  after: "After" {
+    class: stage
+    grid-columns: 1
+    nvme: "nvme · 1 TB\nLonghorn" { class: longhorn }
+    sata: "sata · 500 GB\nTalos" { class: talos }
+  }
+
+  before -> after: "Debian wiped once\nTalos was stable" { class: step }
+}
